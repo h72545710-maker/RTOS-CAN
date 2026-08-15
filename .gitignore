@@ -27,3 +27,5 @@ MDK-ARM/*.scvd
 *.tmp
 *.log
 
+# Third-party downloads kept locally
+vendor/waveshare/
