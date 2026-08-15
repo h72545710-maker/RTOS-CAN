@@ -1,0 +1,29 @@
+# Keil/MDK build output
+MDK-ARM/FreeRTOS+FDCAN/
+MDK-ARM/*.uvguix.*
+MDK-ARM/*.uvoptx
+MDK-ARM/*.scvd
+
+# Common embedded build artifacts
+*.o
+*.d
+*.axf
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.dep
+*.build_log.htm
+*.htm
+*.crf
+*.bak
+
+# IDE/user-local files
+.vscode/
+.idea/
+*.user
+*.tmp
+*.log
+
