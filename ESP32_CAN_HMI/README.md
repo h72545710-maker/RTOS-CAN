@@ -18,6 +18,7 @@ According to Waveshare's documentation, this 2.8-inch board exposes UART, I2C, U
 ## Files
 
 - `Arduino/ESP32_CAN_HMI/ESP32_CAN_HMI.ino`: Arduino sketch with demo mode and TWAI receive mode.
+- `Arduino/ESP32_CAN_HMI_LCD/ESP32_CAN_HMI_LCD.ino`: LVGL LCD dashboard sketch.
 - `docs/wiring.md`: wiring notes for the future CAN transceiver connection.
 
 ## First Run Without CAN Hardware
@@ -32,6 +33,26 @@ Upload the sketch and open Serial Monitor at `115200`. You should see a simulate
 
 ```text
 bus=OK rx=1 tx=0 err=0 last_id=0x123 counter=0 age=...
+```
+
+## LCD Dashboard
+
+After the official Waveshare `LVGL_Arduino` demo works, open:
+
+```text
+Arduino/ESP32_CAN_HMI_LCD/ESP32_CAN_HMI_LCD.ino
+```
+
+This sketch keeps the official LCD/touch/LVGL driver files, but replaces the large onboard demo with a small CAN Monitor page.
+
+Keep Arduino board options similar to the official demo:
+
+```text
+Board: ESP32S3 Dev Module
+Partition Scheme: Huge APP
+Flash Size: 16MB
+PSRAM: Enabled / OPI PSRAM
+USB CDC On Boot: Enabled
 ```
 
 ## Later With CAN Hardware
