@@ -13,10 +13,13 @@
 #include "Display_ST7789.h"
 #include "LVGL_Driver.h"
 
-#define USE_REAL_CAN 0
+#define USE_REAL_CAN 1
 
 static constexpr gpio_num_t CAN_TX_GPIO = GPIO_NUM_18;
 static constexpr gpio_num_t CAN_RX_GPIO = GPIO_NUM_15;
+static constexpr uint32_t CAN_STM32_TX_ID = 0x120;
+static constexpr uint32_t CAN_ESP32_TX_ID = 0x321;
+static constexpr uint32_t CAN_TX_PERIOD_MS = 1000;
 
 typedef struct {
   uint32_t id;
@@ -26,12 +29,17 @@ typedef struct {
 
 typedef struct {
   uint32_t rx_count;
+  uint32_t stm32_rx_count;
+  uint32_t other_rx_count;
   uint32_t tx_count;
+  uint32_t tx_fail_count;
   uint32_t err_count;
   uint32_t last_id;
   uint8_t last_counter;
   uint8_t last_data[8];
   uint32_t last_update_ms;
+  uint32_t last_tx_ms;
+  uint8_t last_tx_counter;
   bool bus_ok;
 } CanDashboardState;
 
@@ -40,6 +48,7 @@ static CanDashboardState dashboard = {0};
 static lv_obj_t *bus_value;
 static lv_obj_t *mode_value;
 static lv_obj_t *rx_value;
+static lv_obj_t *tx_value;
 static lv_obj_t *err_value;
 static lv_obj_t *id_value;
 static lv_obj_t *counter_value;
@@ -48,6 +57,7 @@ static lv_obj_t *age_value;
 
 static bool can_init(void);
 static bool can_receive(CanFrame *frame);
+static bool can_send_demo(void);
 static void make_demo_frame(CanFrame *frame);
 static void handle_frame(const CanFrame *frame);
 static void ui_create(void);
@@ -75,6 +85,12 @@ void loop() {
   if (USE_REAL_CAN) {
     if (can_receive(&frame)) {
       handle_frame(&frame);
+    }
+
+    static uint32_t last_tx_ms = 0;
+    if (millis() - last_tx_ms >= CAN_TX_PERIOD_MS) {
+      last_tx_ms = millis();
+      can_send_demo();
     }
   } else {
     static uint32_t last_demo_ms = 0;
@@ -146,10 +162,40 @@ static bool can_receive(CanFrame *frame) {
   return true;
 }
 
+static bool can_send_demo(void) {
+  static uint8_t counter = 0;
+  twai_message_t message = {0};
+
+  message.identifier = CAN_ESP32_TX_ID;
+  message.extd = 0;
+  message.rtr = 0;
+  message.data_length_code = 8;
+  message.data[0] = counter++;
+  message.data[1] = 0xA1;
+  message.data[2] = 0xA2;
+  message.data[3] = 0xA3;
+  message.data[4] = 0xA4;
+  message.data[5] = 0xA5;
+  message.data[6] = 0xA6;
+  message.data[7] = 0xA7;
+
+  esp_err_t err = twai_transmit(&message, pdMS_TO_TICKS(10));
+  if (err == ESP_OK) {
+    dashboard.tx_count++;
+    dashboard.last_tx_ms = millis();
+    dashboard.last_tx_counter = message.data[0];
+    return true;
+  }
+
+  dashboard.tx_fail_count++;
+  dashboard.err_count++;
+  return false;
+}
+
 static void make_demo_frame(CanFrame *frame) {
   static uint8_t counter = 0;
 
-  frame->id = 0x123;
+  frame->id = CAN_STM32_TX_ID;
   frame->dlc = 8;
   frame->data[0] = counter++;
   frame->data[1] = 0x11;
@@ -163,6 +209,13 @@ static void make_demo_frame(CanFrame *frame) {
 
 static void handle_frame(const CanFrame *frame) {
   dashboard.rx_count++;
+  dashboard.bus_ok = true;
+  if (frame->id == CAN_STM32_TX_ID) {
+    dashboard.stm32_rx_count++;
+  } else {
+    dashboard.other_rx_count++;
+  }
+
   dashboard.last_id = frame->id;
   dashboard.last_counter = frame->dlc > 0 ? frame->data[0] : 0;
   dashboard.last_update_ms = millis();
@@ -184,22 +237,23 @@ static void ui_create(void) {
   lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), 0);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 14, 12);
 
-  bus_value = ui_make_value(screen, "Bus", 52);
-  mode_value = ui_make_value(screen, "Mode", 82);
-  rx_value = ui_make_value(screen, "RX Count", 112);
-  err_value = ui_make_value(screen, "Errors", 142);
-  id_value = ui_make_value(screen, "Last ID", 172);
-  counter_value = ui_make_value(screen, "Counter", 202);
+  bus_value = ui_make_value(screen, "Bus", 42);
+  mode_value = ui_make_value(screen, "Mode", 66);
+  rx_value = ui_make_value(screen, "RX Count", 90);
+  tx_value = ui_make_value(screen, "TX Count", 114);
+  err_value = ui_make_value(screen, "Errors", 138);
+  id_value = ui_make_value(screen, "Last ID", 162);
+  counter_value = ui_make_value(screen, "Counter", 186);
 
   lv_obj_t *data_title = lv_label_create(screen);
   lv_label_set_text(data_title, "Data");
   lv_obj_set_style_text_color(data_title, lv_color_hex(0x9FB3C8), 0);
-  lv_obj_align(data_title, LV_ALIGN_TOP_LEFT, 14, 238);
+  lv_obj_align(data_title, LV_ALIGN_TOP_LEFT, 14, 214);
 
   data_value = lv_label_create(screen);
   lv_obj_set_style_text_font(data_value, &lv_font_montserrat_16, 0);
   lv_obj_set_style_text_color(data_value, lv_color_hex(0x5EEAD4), 0);
-  lv_obj_align(data_value, LV_ALIGN_TOP_LEFT, 14, 262);
+  lv_obj_align(data_value, LV_ALIGN_TOP_LEFT, 14, 238);
 
   age_value = lv_label_create(screen);
   lv_obj_set_style_text_color(age_value, lv_color_hex(0x9FB3C8), 0);
@@ -225,10 +279,17 @@ static void ui_update(void) {
   lv_label_set_text(bus_value, dashboard.bus_ok ? "OK" : "WAIT");
   lv_label_set_text(mode_value, USE_REAL_CAN ? "CAN" : "DEMO");
 
-  snprintf(buf, sizeof(buf), "%lu", static_cast<unsigned long>(dashboard.rx_count));
+  snprintf(buf, sizeof(buf), "%lu/%lu",
+           static_cast<unsigned long>(dashboard.rx_count),
+           static_cast<unsigned long>(dashboard.stm32_rx_count));
   lv_label_set_text(rx_value, buf);
 
-  snprintf(buf, sizeof(buf), "%lu", static_cast<unsigned long>(dashboard.err_count));
+  snprintf(buf, sizeof(buf), "%lu", static_cast<unsigned long>(dashboard.tx_count));
+  lv_label_set_text(tx_value, buf);
+
+  snprintf(buf, sizeof(buf), "%lu/%lu",
+           static_cast<unsigned long>(dashboard.err_count),
+           static_cast<unsigned long>(dashboard.tx_fail_count));
   lv_label_set_text(err_value, buf);
 
   snprintf(buf, sizeof(buf), "0x%03lX", static_cast<unsigned long>(dashboard.last_id));

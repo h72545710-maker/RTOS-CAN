@@ -59,6 +59,8 @@
 /* External variables --------------------------------------------------------*/
 extern FDCAN_HandleTypeDef hfdcan1;
 /* USER CODE BEGIN EV */
+extern volatile uint32_t fdcan_it0_irq_count;
+extern volatile uint32_t fdcan_it1_irq_count;
 
 /* USER CODE END EV */
 
@@ -188,6 +190,7 @@ void SysTick_Handler(void)
 void FDCAN1_IT0_IRQHandler(void)
 {
   /* USER CODE BEGIN FDCAN1_IT0_IRQn 0 */
+  fdcan_it0_irq_count++;
 
   /* USER CODE END FDCAN1_IT0_IRQn 0 */
   HAL_FDCAN_IRQHandler(&hfdcan1);
@@ -202,6 +205,7 @@ void FDCAN1_IT0_IRQHandler(void)
 void FDCAN1_IT1_IRQHandler(void)
 {
   /* USER CODE BEGIN FDCAN1_IT1_IRQn 0 */
+  fdcan_it1_irq_count++;
 
   /* USER CODE END FDCAN1_IT1_IRQn 0 */
   HAL_FDCAN_IRQHandler(&hfdcan1);
