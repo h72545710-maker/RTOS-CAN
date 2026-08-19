@@ -42,12 +42,6 @@
 #define BARE_CAN_MAIN_LOOP_DELAY_MS 1U
 #define BARE_CAN_SNAPSHOT_PERIOD_MS 100U
 #define BARE_CAN_EXPECT_RX_ID 0x321U
-#define BARE_CAN_RX_PROBE_ENABLE 1
-#define BARE_CAN_RX_PROBE_SAMPLES 65536U
-#define BARE_CAN_RX_GPIO GPIOB
-#define BARE_CAN_RX_PIN GPIO_PIN_8
-#define BARE_CAN_TX_GPIO GPIOB
-#define BARE_CAN_TX_PIN GPIO_PIN_9
 
 /* USER CODE END PD */
 
@@ -59,6 +53,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+/* Bare-metal CAN health counters kept for bring-up without RTOS. */
 volatile HAL_StatusTypeDef bare_fdcan_filter_ret = HAL_OK;
 volatile HAL_StatusTypeDef bare_fdcan_global_filter_ret = HAL_OK;
 volatile HAL_StatusTypeDef bare_fdcan_start_ret = HAL_OK;
@@ -66,8 +61,12 @@ volatile HAL_StatusTypeDef bare_last_tx_ret = HAL_OK;
 volatile HAL_StatusTypeDef bare_last_rx_ret = HAL_OK;
 
 volatile uint32_t bare_fdcan_started = 0;
+volatile uint32_t bare_fdcan_init_mode = 0;
+volatile uint32_t bare_fdcan_is_normal_mode = 0;
 volatile uint32_t bare_tx_ok_count = 0;
 volatile uint32_t bare_tx_err_count = 0;
+volatile uint32_t bare_tx_attempt_count = 0;
+volatile uint32_t bare_tx_skip_no_fifo_count = 0;
 volatile uint32_t bare_rx_ok_count = 0;
 volatile uint32_t bare_rx_err_count = 0;
 volatile uint32_t bare_rx_fifo0_fill = 0;
@@ -76,75 +75,16 @@ volatile uint32_t bare_last_rx_id = 0;
 volatile uint32_t bare_last_rx_dlc = 0;
 volatile uint8_t bare_last_rx_data[8] = {0};
 
-volatile uint32_t bare_fdcan_ir = 0;
-volatile uint32_t bare_fdcan_psr = 0;
-volatile uint32_t bare_fdcan_cccr = 0;
-volatile uint32_t bare_fdcan_rxf0s = 0;
-volatile uint32_t bare_fdcan_txfqs = 0;
 volatile uint32_t bare_fdcan_error_code = 0;
 volatile uint32_t bare_fdcan_last_error_code = 0;
 volatile uint32_t bare_fdcan_activity = 0;
 volatile uint32_t bare_fdcan_rx_error_count = 0;
 volatile uint32_t bare_fdcan_tx_error_count = 0;
 
-volatile uint32_t bare_cccr_init = 0;
-volatile uint32_t bare_cccr_cce = 0;
-volatile uint32_t bare_cccr_asm = 0;
-volatile uint32_t bare_cccr_mon = 0;
-volatile uint32_t bare_cccr_test = 0;
-volatile uint32_t bare_cccr_fdoe = 0;
-volatile uint32_t bare_cccr_brse = 0;
-
-volatile uint32_t bare_psr_lec = 0;
-volatile uint32_t bare_psr_dlec = 0;
-volatile uint32_t bare_psr_act = 0;
-volatile uint32_t bare_psr_ep = 0;
-volatile uint32_t bare_psr_ew = 0;
-volatile uint32_t bare_psr_bo = 0;
-volatile uint32_t bare_psr_pxe = 0;
-
-volatile uint32_t bare_ir_rf0n = 0;
-volatile uint32_t bare_ir_rf0f = 0;
-volatile uint32_t bare_ir_rf0l = 0;
-volatile uint32_t bare_ir_pea = 0;
-volatile uint32_t bare_ir_ped = 0;
-volatile uint32_t bare_ir_bo = 0;
-volatile uint32_t bare_ir_ep = 0;
-volatile uint32_t bare_ir_ew = 0;
-
-volatile uint32_t bare_rxf0s_fill_direct = 0;
-volatile uint32_t bare_rxf0s_get_index = 0;
-volatile uint32_t bare_rxf0s_put_index = 0;
-volatile uint32_t bare_rxf0s_full = 0;
-volatile uint32_t bare_rxf0s_lost = 0;
-
-volatile uint32_t bare_rx_pin_level = 0;
-volatile uint32_t bare_tx_pin_level = 0;
-volatile uint32_t bare_rx_pin_high_seen = 0;
-volatile uint32_t bare_rx_pin_low_seen = 0;
-volatile uint32_t bare_rx_pin_edge_count = 0;
-volatile uint32_t bare_tx_pin_high_seen = 0;
-volatile uint32_t bare_tx_pin_low_seen = 0;
-volatile uint32_t bare_tx_pin_edge_count = 0;
-
-volatile uint32_t bare_rx_probe_window_count = 0;
-volatile uint32_t bare_rx_probe_last_high_count = 0;
-volatile uint32_t bare_rx_probe_last_low_count = 0;
-volatile uint32_t bare_rx_probe_last_edge_count = 0;
-volatile uint32_t bare_rx_probe_low_seen_latch = 0;
-volatile uint32_t bare_rx_probe_edge_seen_latch = 0;
-volatile uint32_t bare_rx_probe_low_window_count = 0;
-volatile uint32_t bare_rx_probe_edge_window_count = 0;
-volatile uint32_t bare_rx_probe_last_low_tick = 0;
-volatile uint32_t bare_rx_probe_last_edge_tick = 0;
 volatile uint32_t bare_poll_count = 0;
 volatile uint32_t bare_snapshot_count = 0;
-volatile uint32_t bare_tx_attempt_count = 0;
-volatile uint32_t bare_tx_skip_no_fifo_count = 0;
 volatile uint32_t bare_expected_rx_id = BARE_CAN_EXPECT_RX_ID;
 volatile uint32_t bare_expected_rx_seen_count = 0;
-volatile uint32_t bare_fdcan_init_mode = 0;
-volatile uint32_t bare_fdcan_is_normal_mode = 0;
 volatile uint32_t bare_last_poll_tick = 0;
 volatile uint32_t bare_last_snapshot_tick = 0;
 volatile uint32_t bare_last_tx_tick = 0;
@@ -166,7 +106,6 @@ static void CAN_BareMetal_Poll(void);
 #if BARE_CAN_TX_ENABLE
 static void CAN_BareMetal_SendDemo(void);
 #endif
-static void CAN_BareMetal_ProbeRxPin(void);
 static void CAN_BareMetal_Snapshot(void);
 static uint8_t CAN_BareMetal_DlcToBytes(uint32_t dlc);
 
@@ -336,9 +275,6 @@ static void CAN_BareMetal_Poll(void)
 
   bare_poll_count++;
   bare_last_poll_tick = now;
-#if BARE_CAN_RX_PROBE_ENABLE
-  CAN_BareMetal_ProbeRxPin();
-#endif
   bare_rx_fifo0_fill = HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO0);
 
   while (bare_rx_fifo0_fill > 0U) {
@@ -433,124 +369,19 @@ static void CAN_BareMetal_SendDemo(void)
 }
 #endif
 
-static void CAN_BareMetal_ProbeRxPin(void)
-{
-  static uint32_t lastRxLevel = 0xFFFFFFFFU;
-  uint32_t highCount = 0U;
-  uint32_t lowCount = 0U;
-  uint32_t edgeCount = 0U;
-
-  for (uint32_t i = 0U; i < BARE_CAN_RX_PROBE_SAMPLES; i++) {
-    uint32_t rxLevel = ((BARE_CAN_RX_GPIO->IDR & BARE_CAN_RX_PIN) != 0U) ? 1U : 0U;
-
-    if (rxLevel != 0U) {
-      highCount++;
-    } else {
-      lowCount++;
-    }
-
-    if ((lastRxLevel != 0xFFFFFFFFU) && (rxLevel != lastRxLevel)) {
-      edgeCount++;
-    }
-
-    lastRxLevel = rxLevel;
-  }
-
-  bare_rx_probe_window_count++;
-  bare_rx_probe_last_high_count = highCount;
-  bare_rx_probe_last_low_count = lowCount;
-  bare_rx_probe_last_edge_count = edgeCount;
-
-  if (lowCount != 0U) {
-    bare_rx_probe_low_seen_latch = 1U;
-    bare_rx_probe_low_window_count++;
-    bare_rx_probe_last_low_tick = HAL_GetTick();
-  }
-
-  if (edgeCount != 0U) {
-    bare_rx_probe_edge_seen_latch = 1U;
-    bare_rx_probe_edge_window_count++;
-    bare_rx_probe_last_edge_tick = HAL_GetTick();
-  }
-}
-
 static void CAN_BareMetal_Snapshot(void)
 {
   FDCAN_ProtocolStatusTypeDef protocolStatus = {0};
   FDCAN_ErrorCountersTypeDef errorCounters = {0};
-  uint32_t bitTimeQuanta = 0;
-  static uint32_t lastRxLevel = 0xFFFFFFFFU;
-  static uint32_t lastTxLevel = 0xFFFFFFFFU;
+  uint32_t bitTimeQuanta = 1U + hfdcan1.Init.NominalTimeSeg1 + hfdcan1.Init.NominalTimeSeg2;
 
   bare_snapshot_count++;
   bare_last_snapshot_tick = HAL_GetTick();
   bare_fdcan_init_mode = hfdcan1.Init.Mode;
   bare_fdcan_is_normal_mode = (hfdcan1.Init.Mode == FDCAN_MODE_NORMAL) ? 1U : 0U;
-  bare_fdcan_ir = hfdcan1.Instance->IR;
-  bare_fdcan_psr = hfdcan1.Instance->PSR;
-  bare_fdcan_cccr = hfdcan1.Instance->CCCR;
-  bare_fdcan_rxf0s = hfdcan1.Instance->RXF0S;
-  bare_fdcan_txfqs = hfdcan1.Instance->TXFQS;
   bare_rx_fifo0_fill = HAL_FDCAN_GetRxFifoFillLevel(&hfdcan1, FDCAN_RX_FIFO0);
   bare_tx_fifo_free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
   bare_fdcan_error_code = HAL_FDCAN_GetError(&hfdcan1);
-
-  bare_cccr_init = (bare_fdcan_cccr & FDCAN_CCCR_INIT) >> FDCAN_CCCR_INIT_Pos;
-  bare_cccr_cce = (bare_fdcan_cccr & FDCAN_CCCR_CCE) >> FDCAN_CCCR_CCE_Pos;
-  bare_cccr_asm = (bare_fdcan_cccr & FDCAN_CCCR_ASM) >> FDCAN_CCCR_ASM_Pos;
-  bare_cccr_mon = (bare_fdcan_cccr & FDCAN_CCCR_MON) >> FDCAN_CCCR_MON_Pos;
-  bare_cccr_test = (bare_fdcan_cccr & FDCAN_CCCR_TEST) >> FDCAN_CCCR_TEST_Pos;
-  bare_cccr_fdoe = (bare_fdcan_cccr & FDCAN_CCCR_FDOE) >> FDCAN_CCCR_FDOE_Pos;
-  bare_cccr_brse = (bare_fdcan_cccr & FDCAN_CCCR_BRSE) >> FDCAN_CCCR_BRSE_Pos;
-
-  bare_psr_lec = (bare_fdcan_psr & FDCAN_PSR_LEC) >> FDCAN_PSR_LEC_Pos;
-  bare_psr_dlec = (bare_fdcan_psr & FDCAN_PSR_DLEC) >> FDCAN_PSR_DLEC_Pos;
-  bare_psr_act = (bare_fdcan_psr & FDCAN_PSR_ACT) >> FDCAN_PSR_ACT_Pos;
-  bare_psr_ep = (bare_fdcan_psr & FDCAN_PSR_EP) >> FDCAN_PSR_EP_Pos;
-  bare_psr_ew = (bare_fdcan_psr & FDCAN_PSR_EW) >> FDCAN_PSR_EW_Pos;
-  bare_psr_bo = (bare_fdcan_psr & FDCAN_PSR_BO) >> FDCAN_PSR_BO_Pos;
-  bare_psr_pxe = (bare_fdcan_psr & FDCAN_PSR_PXE) >> FDCAN_PSR_PXE_Pos;
-
-  bare_ir_rf0n = (bare_fdcan_ir & FDCAN_IR_RF0N) >> FDCAN_IR_RF0N_Pos;
-  bare_ir_rf0f = (bare_fdcan_ir & FDCAN_IR_RF0F) >> FDCAN_IR_RF0F_Pos;
-  bare_ir_rf0l = (bare_fdcan_ir & FDCAN_IR_RF0L) >> FDCAN_IR_RF0L_Pos;
-  bare_ir_pea = (bare_fdcan_ir & FDCAN_IR_PEA) >> FDCAN_IR_PEA_Pos;
-  bare_ir_ped = (bare_fdcan_ir & FDCAN_IR_PED) >> FDCAN_IR_PED_Pos;
-  bare_ir_bo = (bare_fdcan_ir & FDCAN_IR_BO) >> FDCAN_IR_BO_Pos;
-  bare_ir_ep = (bare_fdcan_ir & FDCAN_IR_EP) >> FDCAN_IR_EP_Pos;
-  bare_ir_ew = (bare_fdcan_ir & FDCAN_IR_EW) >> FDCAN_IR_EW_Pos;
-
-  bare_rxf0s_fill_direct = (bare_fdcan_rxf0s & FDCAN_RXF0S_F0FL) >> FDCAN_RXF0S_F0FL_Pos;
-  bare_rxf0s_get_index = (bare_fdcan_rxf0s & FDCAN_RXF0S_F0GI) >> FDCAN_RXF0S_F0GI_Pos;
-  bare_rxf0s_put_index = (bare_fdcan_rxf0s & FDCAN_RXF0S_F0PI) >> FDCAN_RXF0S_F0PI_Pos;
-  bare_rxf0s_full = (bare_fdcan_rxf0s & FDCAN_RXF0S_F0F) >> FDCAN_RXF0S_F0F_Pos;
-  bare_rxf0s_lost = (bare_fdcan_rxf0s & FDCAN_RXF0S_RF0L) >> FDCAN_RXF0S_RF0L_Pos;
-
-  bare_rx_pin_level = ((BARE_CAN_RX_GPIO->IDR & BARE_CAN_RX_PIN) != 0U) ? 1U : 0U;
-  bare_tx_pin_level = ((BARE_CAN_TX_GPIO->IDR & BARE_CAN_TX_PIN) != 0U) ? 1U : 0U;
-
-  if (bare_rx_pin_level != 0U) {
-    bare_rx_pin_high_seen++;
-  } else {
-    bare_rx_pin_low_seen++;
-  }
-
-  if (bare_tx_pin_level != 0U) {
-    bare_tx_pin_high_seen++;
-  } else {
-    bare_tx_pin_low_seen++;
-  }
-
-  if ((lastRxLevel != 0xFFFFFFFFU) && (bare_rx_pin_level != lastRxLevel)) {
-    bare_rx_pin_edge_count++;
-  }
-
-  if ((lastTxLevel != 0xFFFFFFFFU) && (bare_tx_pin_level != lastTxLevel)) {
-    bare_tx_pin_edge_count++;
-  }
-
-  lastRxLevel = bare_rx_pin_level;
-  lastTxLevel = bare_tx_pin_level;
 
   if (HAL_FDCAN_GetProtocolStatus(&hfdcan1, &protocolStatus) == HAL_OK) {
     bare_fdcan_last_error_code = protocolStatus.LastErrorCode;
@@ -565,10 +396,13 @@ static void CAN_BareMetal_Snapshot(void)
   bare_sysclk_hz = HAL_RCC_GetSysClockFreq();
   bare_hclk_hz = HAL_RCC_GetHCLKFreq();
   bare_can_kernel_clock_hz = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
-  bitTimeQuanta = 1U + hfdcan1.Init.NominalTimeSeg1 + hfdcan1.Init.NominalTimeSeg2;
 
-  if ((bare_can_kernel_clock_hz != 0U) && (hfdcan1.Init.NominalPrescaler != 0U) && (bitTimeQuanta != 0U)) {
-    bare_can_calculated_bitrate = bare_can_kernel_clock_hz / hfdcan1.Init.NominalPrescaler / bitTimeQuanta;
+  if ((bare_can_kernel_clock_hz != 0U) &&
+      (hfdcan1.Init.NominalPrescaler != 0U) &&
+      (bitTimeQuanta != 0U)) {
+    bare_can_calculated_bitrate = bare_can_kernel_clock_hz /
+                                  hfdcan1.Init.NominalPrescaler /
+                                  bitTimeQuanta;
   } else {
     bare_can_calculated_bitrate = 0U;
   }

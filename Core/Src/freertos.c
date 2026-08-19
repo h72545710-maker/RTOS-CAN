@@ -57,52 +57,20 @@ typedef struct {
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+/* CAN health counters. Keep this list small enough to be useful in Watch windows. */
 volatile uint32_t tx_ok_count = 0;
 volatile uint32_t tx_err_count = 0;
-volatile uint32_t rx_irq_count = 0;
-volatile uint32_t rx_task_count = 0;
-volatile HAL_StatusTypeDef last_tx_ret = HAL_OK;
-volatile CanFrame_t last_rx_frame;
-volatile HAL_StatusTypeDef fdcan_start_ret = HAL_OK;
-volatile uint32_t fdcan_error_code = 0;
-volatile uint32_t tx_fifo_free_level = 0;
-volatile uint32_t fdcan_bus_off = 0;
-volatile uint32_t fdcan_error_passive = 0;
-volatile uint32_t fdcan_warning = 0;
-volatile uint32_t fdcan_last_error_code = 0;
-volatile uint32_t fdcan_data_last_error_code = 0;
-volatile uint32_t fdcan_activity = 0;
-volatile uint32_t fdcan_rx_esi_flag = 0;
-volatile uint32_t fdcan_tx_error_count = 0;
-volatile uint32_t fdcan_rx_error_count = 0;
 volatile uint32_t tx_full_skip_count = 0;
 volatile uint32_t tx_complete_count = 0;
 volatile uint32_t tx_fifo_empty_count = 0;
 volatile uint32_t tx_abort_count = 0;
-volatile uint32_t fdcan_error_callback_count = 0;
-volatile uint32_t fdcan_error_status_callback_count = 0;
 volatile uint32_t latest_tx_buffer = 0;
 volatile uint32_t last_tx_complete_buffer = 0;
 volatile uint32_t last_tx_abort_buffer = 0;
-volatile uint32_t fdcan_rx_fifo0_fill = 0;
-volatile uint32_t fdcan_cccr = 0;
-volatile uint32_t fdcan_txfqs = 0;
-volatile uint32_t fdcan_rxf0s = 0;
-volatile uint32_t fdcan_ir = 0;
-volatile uint32_t fdcan_ie = 0;
-volatile uint32_t fdcan_ils = 0;
-volatile uint32_t fdcan_ile = 0;
-volatile uint32_t fdcan_txbrp = 0;
-volatile uint32_t fdcan_txbto = 0;
-volatile uint32_t fdcan_txbc = 0;
-volatile uint32_t fdcan_txbcr = 0;
-volatile uint32_t fdcan_txbcf = 0;
-volatile uint32_t fdcan_txbtie = 0;
-volatile uint32_t fdcan_txbcie = 0;
-volatile uint32_t fdcan_test = 0;
-volatile uint32_t fdcan_psr = 0;
-volatile uint32_t fdcan_it0_irq_count = 0;
-volatile uint32_t fdcan_it1_irq_count = 0;
+volatile HAL_StatusTypeDef last_tx_ret = HAL_OK;
+
+volatile uint32_t rx_irq_count = 0;
+volatile uint32_t rx_task_count = 0;
 volatile uint32_t rx_fifo0_callback_count = 0;
 volatile uint32_t rx_fifo0_its_last = 0;
 volatile uint32_t rx_get_ok_count = 0;
@@ -110,6 +78,14 @@ volatile uint32_t rx_get_err_count = 0;
 volatile uint32_t rx_queue_put_ok_count = 0;
 volatile uint32_t rx_queue_put_err_count = 0;
 volatile osStatus_t rx_queue_put_last_status = osOK;
+volatile uint32_t rx_queue_count = 0;
+volatile uint32_t rx_queue_space = 0;
+volatile uint32_t rx_poll_count = 0;
+volatile uint32_t rx_poll_fifo_seen = 0;
+volatile uint32_t rx_poll_get_ok_count = 0;
+volatile uint32_t rx_poll_get_err_count = 0;
+volatile CanFrame_t last_rx_frame;
+
 volatile uint32_t expected_rx_seen_count = 0;
 volatile uint32_t unexpected_rx_seen_count = 0;
 volatile uint32_t esp32_rx_count = 0;
@@ -117,78 +93,35 @@ volatile uint32_t esp32_last_rx_id = 0;
 volatile uint32_t esp32_last_rx_dlc = 0;
 volatile uint32_t esp32_last_rx_counter = 0;
 volatile uint8_t esp32_last_rx_data[8] = {0};
-volatile uint32_t rx_queue_count = 0;
-volatile uint32_t rx_queue_space = 0;
-volatile uint32_t rx_poll_count = 0;
-volatile uint32_t rx_poll_fifo_seen = 0;
-volatile uint32_t rx_poll_get_ok_count = 0;
-volatile uint32_t rx_poll_get_err_count = 0;
-volatile uint32_t fdcan_init_rx_fifo0_elements = 0;
-volatile uint32_t fdcan_rx_pin_level = 0;
-volatile uint32_t fdcan_rx_pin_high_seen = 0;
-volatile uint32_t fdcan_rx_pin_low_seen = 0;
-volatile uint32_t fdcan_rx_pin_edge_count = 0;
-volatile uint32_t fdcan_rx_pin_sample_count = 0;
-volatile uint32_t fdcan_tx_pin_level = 0;
-volatile uint32_t fdcan_tx_pin_high_seen = 0;
-volatile uint32_t fdcan_tx_pin_low_seen = 0;
-volatile uint32_t fdcan_tx_pin_edge_count = 0;
-volatile uint32_t fdcan_tx_pin_sample_count = 0;
-volatile uint32_t fdcan_rx_probe_high_count = 0;
-volatile uint32_t fdcan_rx_probe_low_count = 0;
-volatile uint32_t fdcan_rx_probe_edge_count = 0;
-volatile uint32_t fdcan_rx_probe_dominant_seen = 0;
-volatile uint32_t fdcan_rx_probe_idle_high = 0;
-volatile uint32_t fdcan_tx_probe_high_count = 0;
-volatile uint32_t fdcan_tx_probe_low_count = 0;
-volatile uint32_t fdcan_tx_probe_edge_count = 0;
-volatile uint32_t fdcan_tx_probe_dominant_seen = 0;
-volatile uint32_t fdcan_tx_probe_idle_high = 0;
-volatile uint32_t fdcan_started = 0;
+
+volatile HAL_StatusTypeDef fdcan_start_ret = HAL_OK;
 volatile HAL_StatusTypeDef fdcan_filter_ret = HAL_OK;
 volatile HAL_StatusTypeDef fdcan_global_filter_ret = HAL_OK;
 volatile HAL_StatusTypeDef fdcan_interrupt_line_ret = HAL_OK;
 volatile HAL_StatusTypeDef fdcan_notification_ret = HAL_OK;
+volatile uint32_t fdcan_started = 0;
+volatile uint32_t fdcan_error_code = 0;
+volatile uint32_t fdcan_last_error_code = 0;
+volatile uint32_t fdcan_data_last_error_code = 0;
+volatile uint32_t fdcan_activity = 0;
+volatile uint32_t fdcan_bus_off = 0;
+volatile uint32_t fdcan_error_passive = 0;
+volatile uint32_t fdcan_warning = 0;
+volatile uint32_t fdcan_rx_esi_flag = 0;
+volatile uint32_t fdcan_tx_error_count = 0;
+volatile uint32_t fdcan_rx_error_count = 0;
+volatile uint32_t fdcan_error_callback_count = 0;
+volatile uint32_t fdcan_error_status_callback_count = 0;
+volatile uint32_t fdcan_it0_irq_count = 0;
+volatile uint32_t fdcan_it1_irq_count = 0;
+volatile uint32_t fdcan_rx_fifo0_fill = 0;
+volatile uint32_t fdcan_init_rx_fifo0_elements = 0;
+volatile uint32_t tx_fifo_free_level = 0;
+volatile uint32_t fdcan_kernel_clock_hz = 0;
+volatile uint32_t fdcan_calculated_bitrate = 0;
 volatile uint32_t firmware_marker = 0x20260818U;
 volatile uint32_t can_periodic_tx_runtime = CAN_PERIODIC_TX_ENABLE;
 volatile uint32_t can_rx_interrupt_runtime = CAN_RX_INTERRUPT_ENABLE;
-volatile uint32_t fdcan_filter_id1 = 0;
-volatile uint32_t fdcan_filter_id2 = 0;
-volatile uint32_t fdcan_rxf0s_fill = 0;
-volatile uint32_t fdcan_mode_runtime = 0;
-volatile uint32_t fdcan_cccr_init = 0;
-volatile uint32_t fdcan_cccr_cce = 0;
-volatile uint32_t fdcan_cccr_asm = 0;
-volatile uint32_t fdcan_cccr_mon = 0;
-volatile uint32_t fdcan_cccr_test = 0;
-volatile uint32_t fdcan_test_lbck = 0;
-volatile uint32_t fdcan_test_rx = 0;
-volatile uint32_t fdcan_test_tx = 0;
-volatile uint32_t fdcan_txfqs_free = 0;
-volatile uint32_t fdcan_txfqs_get_index = 0;
-volatile uint32_t fdcan_txfqs_put_index = 0;
-volatile uint32_t fdcan_txfqs_full = 0;
-volatile uint32_t fdcan_tx_pending_count = 0;
-volatile uint32_t fdcan_tx_completed_count = 0;
-volatile uint32_t fdcan_psr_lec = 0;
-volatile uint32_t fdcan_psr_activity = 0;
-volatile uint32_t fdcan_psr_error_passive = 0;
-volatile uint32_t fdcan_psr_warning = 0;
-volatile uint32_t fdcan_psr_bus_off = 0;
-volatile uint32_t fdcan_psr_dlec = 0;
-volatile uint32_t fdcan_kernel_clock_hz = 0;
-volatile uint32_t fdcan_clock_source = 0;
-volatile uint32_t fdcan_nominal_total_tq = 0;
-volatile uint32_t fdcan_calculated_bitrate = 0;
-volatile uint32_t fdcan_nominal_prescaler_runtime = 0;
-volatile uint32_t fdcan_nominal_seg1_runtime = 0;
-volatile uint32_t fdcan_nominal_seg2_runtime = 0;
-volatile uint32_t fdcan_nominal_sjw_runtime = 0;
-volatile uint32_t fdcan_message_ram_std_filter_sa = 0;
-volatile uint32_t fdcan_message_ram_rxfifo0_sa = 0;
-volatile uint32_t fdcan_message_ram_txfifoq_sa = 0;
-volatile uint32_t fdcan_message_ram_end_sa = 0;
-volatile uint32_t fdcan_std_filter_word0 = 0;
 
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
@@ -222,7 +155,6 @@ const osMessageQueueAttr_t canRxQueue_attributes = {
 /* USER CODE BEGIN FunctionPrototypes */
 static void fdcan_app_start(void);
 static void fdcan_snapshot_status(void);
-static void fdcan_probe_rx_pin(void);
 static void fdcan_note_received_frame(const CanFrame_t *frame);
 static uint8_t fdcan_dlc_to_bytes(uint32_t dlc);
 void can_tx_task(void *argument);
@@ -383,7 +315,6 @@ void can_rx_task(void *argument)
   {
 #if CAN_RX_POLL_ENABLE
     rx_poll_count++;
-    fdcan_probe_rx_pin();
     if ((rx_poll_count & 0x3FU) == 0U) {
         fdcan_snapshot_status();
     }
@@ -446,6 +377,7 @@ static void fdcan_snapshot_status(void)
 {
     FDCAN_ProtocolStatusTypeDef protocol_status = {0};
     FDCAN_ErrorCountersTypeDef error_counters = {0};
+    uint32_t nominal_total_tq = 1U + hfdcan1.Init.NominalTimeSeg1 + hfdcan1.Init.NominalTimeSeg2;
 
     can_periodic_tx_runtime = CAN_PERIODIC_TX_ENABLE;
     can_rx_interrupt_runtime = CAN_RX_INTERRUPT_ENABLE;
@@ -458,27 +390,14 @@ static void fdcan_snapshot_status(void)
     fdcan_error_code = HAL_FDCAN_GetError(&hfdcan1);
     fdcan_init_rx_fifo0_elements = hfdcan1.Init.RxFifo0ElmtsNbr;
     fdcan_kernel_clock_hz = HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_FDCAN);
-    fdcan_clock_source = __HAL_RCC_GET_FDCAN_SOURCE();
-    fdcan_nominal_prescaler_runtime = hfdcan1.Init.NominalPrescaler;
-    fdcan_nominal_seg1_runtime = hfdcan1.Init.NominalTimeSeg1;
-    fdcan_nominal_seg2_runtime = hfdcan1.Init.NominalTimeSeg2;
-    fdcan_nominal_sjw_runtime = hfdcan1.Init.NominalSyncJumpWidth;
-    fdcan_nominal_total_tq = 1U + hfdcan1.Init.NominalTimeSeg1 + hfdcan1.Init.NominalTimeSeg2;
     if ((fdcan_kernel_clock_hz != 0U) &&
         (hfdcan1.Init.NominalPrescaler != 0U) &&
-        (fdcan_nominal_total_tq != 0U)) {
+        (nominal_total_tq != 0U)) {
         fdcan_calculated_bitrate = fdcan_kernel_clock_hz /
                                    hfdcan1.Init.NominalPrescaler /
-                                   fdcan_nominal_total_tq;
+                                   nominal_total_tq;
     } else {
         fdcan_calculated_bitrate = 0U;
-    }
-    fdcan_message_ram_std_filter_sa = hfdcan1.msgRam.StandardFilterSA;
-    fdcan_message_ram_rxfifo0_sa = hfdcan1.msgRam.RxFIFO0SA;
-    fdcan_message_ram_txfifoq_sa = hfdcan1.msgRam.TxFIFOQSA;
-    fdcan_message_ram_end_sa = hfdcan1.msgRam.EndAddress;
-    if (hfdcan1.msgRam.StandardFilterSA != 0U) {
-        fdcan_std_filter_word0 = *(__IO uint32_t *)hfdcan1.msgRam.StandardFilterSA;
     }
 
     if (HAL_FDCAN_GetProtocolStatus(&hfdcan1, &protocol_status) == HAL_OK) {
@@ -495,111 +414,6 @@ static void fdcan_snapshot_status(void)
         fdcan_tx_error_count = error_counters.TxErrorCnt;
         fdcan_rx_error_count = error_counters.RxErrorCnt;
     }
-
-    fdcan_cccr = hfdcan1.Instance->CCCR;
-    fdcan_txfqs = hfdcan1.Instance->TXFQS;
-    fdcan_rxf0s = hfdcan1.Instance->RXF0S;
-    fdcan_rxf0s_fill = fdcan_rxf0s & 0x7FU;
-    fdcan_ir = hfdcan1.Instance->IR;
-    fdcan_ie = hfdcan1.Instance->IE;
-    fdcan_ils = hfdcan1.Instance->ILS;
-    fdcan_ile = hfdcan1.Instance->ILE;
-    fdcan_txbrp = hfdcan1.Instance->TXBRP;
-    fdcan_txbto = hfdcan1.Instance->TXBTO;
-    fdcan_txbc = hfdcan1.Instance->TXBC;
-    fdcan_txbcr = hfdcan1.Instance->TXBCR;
-    fdcan_txbcf = hfdcan1.Instance->TXBCF;
-    fdcan_txbtie = hfdcan1.Instance->TXBTIE;
-    fdcan_txbcie = hfdcan1.Instance->TXBCIE;
-    fdcan_test = hfdcan1.Instance->TEST;
-    fdcan_psr = hfdcan1.Instance->PSR;
-    fdcan_mode_runtime = hfdcan1.Init.Mode;
-    fdcan_cccr_init = (fdcan_cccr >> 0) & 0x1U;
-    fdcan_cccr_cce = (fdcan_cccr >> 1) & 0x1U;
-    fdcan_cccr_asm = (fdcan_cccr >> 2) & 0x1U;
-    fdcan_cccr_mon = (fdcan_cccr >> 5) & 0x1U;
-    fdcan_cccr_test = (fdcan_cccr & FDCAN_CCCR_TEST) ? 1U : 0U;
-    fdcan_test_lbck = (fdcan_test & FDCAN_TEST_LBCK) ? 1U : 0U;
-    fdcan_test_tx = (fdcan_test & FDCAN_TEST_TX) >> FDCAN_TEST_TX_Pos;
-    fdcan_test_rx = (fdcan_test & FDCAN_TEST_RX) >> FDCAN_TEST_RX_Pos;
-    fdcan_txfqs_free = (fdcan_txfqs & FDCAN_TXFQS_TFFL) >> FDCAN_TXFQS_TFFL_Pos;
-    fdcan_txfqs_get_index = (fdcan_txfqs & FDCAN_TXFQS_TFGI) >> FDCAN_TXFQS_TFGI_Pos;
-    fdcan_txfqs_put_index = (fdcan_txfqs & FDCAN_TXFQS_TFQPI) >> FDCAN_TXFQS_TFQPI_Pos;
-    fdcan_txfqs_full = (fdcan_txfqs & FDCAN_TXFQS_TFQF) ? 1U : 0U;
-    fdcan_tx_pending_count = ((fdcan_txbrp & 0x1U) ? 1U : 0U) +
-                             ((fdcan_txbrp & 0x2U) ? 1U : 0U) +
-                             ((fdcan_txbrp & 0x4U) ? 1U : 0U);
-    fdcan_tx_completed_count = ((fdcan_txbto & 0x1U) ? 1U : 0U) +
-                               ((fdcan_txbto & 0x2U) ? 1U : 0U) +
-                               ((fdcan_txbto & 0x4U) ? 1U : 0U);
-    fdcan_psr_lec = (fdcan_psr >> 0) & 0x7U;
-    fdcan_psr_activity = (fdcan_psr >> 3) & 0x3U;
-    fdcan_psr_error_passive = (fdcan_psr >> 5) & 0x1U;
-    fdcan_psr_warning = (fdcan_psr >> 6) & 0x1U;
-    fdcan_psr_bus_off = (fdcan_psr >> 7) & 0x1U;
-    fdcan_psr_dlec = (fdcan_psr >> 8) & 0x7U;
-}
-
-static void fdcan_probe_rx_pin(void)
-{
-    static uint32_t last_rx_level = 0xFFFFFFFFU;
-    static uint32_t last_tx_level = 0xFFFFFFFFU;
-    uint32_t rx_high_count = 0;
-    uint32_t rx_low_count = 0;
-    uint32_t rx_edge_count = 0;
-    uint32_t tx_high_count = 0;
-    uint32_t tx_low_count = 0;
-    uint32_t tx_edge_count = 0;
-
-    for (uint32_t i = 0; i < 16384U; i++) {
-        uint32_t rx_level = (GPIOB->IDR & GPIO_PIN_8) ? 1U : 0U;
-        uint32_t tx_level = (GPIOB->IDR & GPIO_PIN_9) ? 1U : 0U;
-
-        fdcan_rx_pin_level = rx_level;
-        fdcan_rx_pin_sample_count++;
-        fdcan_tx_pin_level = tx_level;
-        fdcan_tx_pin_sample_count++;
-
-        if (rx_level != 0U) {
-            fdcan_rx_pin_high_seen++;
-            rx_high_count++;
-        } else {
-            fdcan_rx_pin_low_seen++;
-            rx_low_count++;
-        }
-
-        if (tx_level != 0U) {
-            fdcan_tx_pin_high_seen++;
-            tx_high_count++;
-        } else {
-            fdcan_tx_pin_low_seen++;
-            tx_low_count++;
-        }
-
-        if ((last_rx_level != 0xFFFFFFFFU) && (rx_level != last_rx_level)) {
-            fdcan_rx_pin_edge_count++;
-            rx_edge_count++;
-        }
-
-        if ((last_tx_level != 0xFFFFFFFFU) && (tx_level != last_tx_level)) {
-            fdcan_tx_pin_edge_count++;
-            tx_edge_count++;
-        }
-
-        last_rx_level = rx_level;
-        last_tx_level = tx_level;
-    }
-
-    fdcan_rx_probe_high_count = rx_high_count;
-    fdcan_rx_probe_low_count = rx_low_count;
-    fdcan_rx_probe_edge_count = rx_edge_count;
-    fdcan_rx_probe_dominant_seen = (rx_low_count > 0U) ? 1U : 0U;
-    fdcan_rx_probe_idle_high = ((rx_high_count > 0U) && (rx_low_count == 0U)) ? 1U : 0U;
-    fdcan_tx_probe_high_count = tx_high_count;
-    fdcan_tx_probe_low_count = tx_low_count;
-    fdcan_tx_probe_edge_count = tx_edge_count;
-    fdcan_tx_probe_dominant_seen = (tx_low_count > 0U) ? 1U : 0U;
-    fdcan_tx_probe_idle_high = ((tx_high_count > 0U) && (tx_low_count == 0U)) ? 1U : 0U;
 }
 
 static void fdcan_app_start(void)
@@ -626,8 +440,6 @@ static void fdcan_app_start(void)
     filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     filter.FilterID1 = 0x000;
     filter.FilterID2 = 0x000;
-    fdcan_filter_id1 = filter.FilterID1;
-    fdcan_filter_id2 = filter.FilterID2;
 
     fdcan_filter_ret = HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
@@ -758,7 +570,7 @@ void HAL_FDCAN_ErrorStatusCallback(FDCAN_HandleTypeDef *hfdcan, uint32_t ErrorSt
     }
 
     fdcan_error_status_callback_count++;
-    fdcan_psr = hfdcan->Instance->PSR;
+    fdcan_snapshot_status();
     (void)ErrorStatusITs;
 }
 
