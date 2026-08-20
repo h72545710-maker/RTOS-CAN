@@ -26,6 +26,7 @@ static uint32_t heartbeat_timed_out_latched;
 static volatile CanStatistics_t can_statistics = {
     .last_tx_ret = HAL_OK,
     .rx_queue_put_last_status = osOK,
+    .node_state = CAN_NODE_INIT,
     .fdcan_start_ret = HAL_OK,
     .fdcan_filter_ret = HAL_OK,
     .fdcan_global_filter_ret = HAL_OK,
@@ -43,7 +44,9 @@ volatile uint32_t fdcan_it1_irq_count = 0;
 static void CAN_App_Start(void);
 static void CAN_App_SnapshotStatus(void);
 static void CAN_App_NoteReceivedFrame(const CanFrame_t *frame);
+static void CAN_App_HandleHeartbeatReceived(void);
 static void CAN_App_UpdateHeartbeatStatus(void);
+static void CAN_App_SetNodeState(CanNodeState_t state);
 static uint8_t CAN_App_DlcToBytes(uint32_t dlc);
 
 void CAN_App_Init(osMessageQueueId_t rxQueue)
@@ -177,13 +180,43 @@ static void CAN_App_NoteReceivedFrame(const CanFrame_t *frame)
             can_statistics.esp32_last_rx_data[i] = frame->data[i];
         }
     } else if (frame->id == CAN_ESP32_HEARTBEAT_ID) {
-        can_statistics.heartbeat_rx_count++;
-        can_statistics.last_heartbeat_tick = osKernelGetTickCount();
-        can_statistics.heartbeat_age_ms = 0U;
-        can_statistics.esp32_online = 1U;
-        heartbeat_timed_out_latched = 0U;
+        CAN_App_HandleHeartbeatReceived();
     } else {
         can_statistics.unexpected_rx_seen_count++;
+    }
+}
+
+static void CAN_App_HandleHeartbeatReceived(void)
+{
+    can_statistics.heartbeat_rx_count++;
+    can_statistics.last_heartbeat_tick = osKernelGetTickCount();
+    can_statistics.heartbeat_age_ms = 0U;
+    heartbeat_timed_out_latched = 0U;
+
+    switch (can_statistics.node_state) {
+    case CAN_NODE_INIT:
+        can_statistics.recovery_heartbeat_count = 0U;
+        CAN_App_SetNodeState(CAN_NODE_ONLINE);
+        break;
+
+    case CAN_NODE_OFFLINE:
+        can_statistics.recovery_heartbeat_count = 1U;
+        CAN_App_SetNodeState(CAN_NODE_RECOVERING);
+        break;
+
+    case CAN_NODE_RECOVERING:
+        can_statistics.recovery_heartbeat_count++;
+        if (can_statistics.recovery_heartbeat_count >= 3U) {
+            can_statistics.recovery_heartbeat_count = 0U;
+            CAN_App_SetNodeState(CAN_NODE_ONLINE);
+        }
+        break;
+
+    case CAN_NODE_ONLINE:
+    default:
+        can_statistics.recovery_heartbeat_count = 0U;
+        CAN_App_SetNodeState(CAN_NODE_ONLINE);
+        break;
     }
 }
 
@@ -193,7 +226,7 @@ static void CAN_App_UpdateHeartbeatStatus(void)
 
     if (can_statistics.last_heartbeat_tick == 0U) {
         can_statistics.heartbeat_age_ms = 0U;
-        can_statistics.esp32_online = 0U;
+        CAN_App_SetNodeState(CAN_NODE_INIT);
         return;
     }
 
@@ -204,11 +237,19 @@ static void CAN_App_UpdateHeartbeatStatus(void)
             heartbeat_timed_out_latched = 1U;
         }
 
-        can_statistics.esp32_online = 0U;
-    } else {
-        can_statistics.esp32_online = 1U;
-        heartbeat_timed_out_latched = 0U;
+        can_statistics.recovery_heartbeat_count = 0U;
+        CAN_App_SetNodeState(CAN_NODE_OFFLINE);
     }
+}
+
+static void CAN_App_SetNodeState(CanNodeState_t state)
+{
+    if (can_statistics.node_state != state) {
+        can_statistics.node_state = state;
+        can_statistics.node_state_change_count++;
+    }
+
+    can_statistics.esp32_online = (state == CAN_NODE_ONLINE) ? 1U : 0U;
 }
 
 static void CAN_App_SnapshotStatus(void)

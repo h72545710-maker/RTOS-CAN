@@ -23,6 +23,13 @@ typedef struct {
     uint8_t data[8];
 } CanFrame_t;
 
+typedef enum {
+    CAN_NODE_INIT = 0,
+    CAN_NODE_ONLINE,
+    CAN_NODE_OFFLINE,
+    CAN_NODE_RECOVERING
+} CanNodeState_t;
+
 typedef struct {
     uint32_t tx_ok_count;
     uint32_t tx_err_count;
@@ -64,6 +71,9 @@ typedef struct {
     uint32_t heartbeat_age_ms;
     uint32_t heartbeat_timeout_count;
     uint32_t esp32_online;
+    CanNodeState_t node_state;
+    uint32_t node_state_change_count;
+    uint32_t recovery_heartbeat_count;
 
     HAL_StatusTypeDef fdcan_start_ret;
     HAL_StatusTypeDef fdcan_filter_ret;
