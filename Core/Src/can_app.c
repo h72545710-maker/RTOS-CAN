@@ -238,16 +238,16 @@ static void CAN_App_Start(void)
 
     filter.IdType = FDCAN_STANDARD_ID;
     filter.FilterIndex = 0;
-    filter.FilterType = FDCAN_FILTER_MASK;
+    filter.FilterType = FDCAN_FILTER_DUAL;
     filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-    filter.FilterID1 = 0x000;
-    filter.FilterID2 = 0x000;
+    filter.FilterID1 = CAN_ESP32_TX_ID;
+    filter.FilterID2 = CAN_ESP32_TX_ID;
 
     can_statistics.fdcan_filter_ret = HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
     can_statistics.fdcan_global_filter_ret = HAL_FDCAN_ConfigGlobalFilter(&hfdcan1,
-                                                                          FDCAN_ACCEPT_IN_RX_FIFO0,
-                                                                          FDCAN_ACCEPT_IN_RX_FIFO0,
+                                                                          FDCAN_REJECT,
+                                                                          FDCAN_REJECT,
                                                                           FDCAN_REJECT_REMOTE,
                                                                           FDCAN_REJECT_REMOTE);
 
