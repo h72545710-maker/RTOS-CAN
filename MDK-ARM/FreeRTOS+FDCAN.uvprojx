@@ -411,6 +411,11 @@
               <FilePath>../Core/Src/freertos.c</FilePath>
             </File>
             <File>
+              <FileName>can_app.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../Core/Src/can_app.c</FilePath>
+            </File>
+            <File>
               <FileName>fdcan.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/fdcan.c</FilePath>
