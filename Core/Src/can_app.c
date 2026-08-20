@@ -15,9 +15,14 @@
 #define CAN_RX_INTERRUPT_ENABLE 1
 #define CAN_STM32_TX_ID 0x120U
 #define CAN_ESP32_TX_ID 0x321U
+#define CAN_ESP32_HEARTBEAT_ID 0x701U
 #define CAN_TX_PERIOD_MS 1000U
+#define CAN_HEARTBEAT_PERIOD_MS 500U
+#define CAN_HEARTBEAT_TIMEOUT_MS (3U * CAN_HEARTBEAT_PERIOD_MS)
+#define CAN_RX_QUEUE_WAIT_MS 100U
 
 static osMessageQueueId_t can_rx_queue_handle;
+static uint32_t heartbeat_timed_out_latched;
 static volatile CanStatistics_t can_statistics = {
     .last_tx_ret = HAL_OK,
     .rx_queue_put_last_status = osOK,
@@ -38,6 +43,7 @@ volatile uint32_t fdcan_it1_irq_count = 0;
 static void CAN_App_Start(void);
 static void CAN_App_SnapshotStatus(void);
 static void CAN_App_NoteReceivedFrame(const CanFrame_t *frame);
+static void CAN_App_UpdateHeartbeatStatus(void);
 static uint8_t CAN_App_DlcToBytes(uint32_t dlc);
 
 void CAN_App_Init(osMessageQueueId_t rxQueue)
@@ -134,6 +140,7 @@ void can_rx_task(void *argument)
                 frame.dlc = CAN_App_DlcToBytes(rxHeader.DataLength);
                 can_statistics.rx_task_count++;
                 CAN_App_NoteReceivedFrame(&frame);
+                CAN_App_UpdateHeartbeatStatus();
                 can_statistics.rx_poll_get_ok_count++;
                 CAN_App_SnapshotStatus();
             } else {
@@ -142,11 +149,14 @@ void can_rx_task(void *argument)
         }
         osDelay(1);
 #else
-        if (osMessageQueueGet(can_rx_queue_handle, &frame, NULL, osWaitForever) == osOK) {
+        if (osMessageQueueGet(can_rx_queue_handle, &frame, NULL, CAN_RX_QUEUE_WAIT_MS) == osOK) {
             can_statistics.rx_task_count++;
             CAN_App_NoteReceivedFrame(&frame);
+            CAN_App_UpdateHeartbeatStatus();
             CAN_App_SnapshotStatus();
             __NOP();
+        } else {
+            CAN_App_UpdateHeartbeatStatus();
         }
 #endif
     }
@@ -166,8 +176,38 @@ static void CAN_App_NoteReceivedFrame(const CanFrame_t *frame)
         for (uint32_t i = 0; i < sizeof(can_statistics.esp32_last_rx_data); i++) {
             can_statistics.esp32_last_rx_data[i] = frame->data[i];
         }
+    } else if (frame->id == CAN_ESP32_HEARTBEAT_ID) {
+        can_statistics.heartbeat_rx_count++;
+        can_statistics.last_heartbeat_tick = osKernelGetTickCount();
+        can_statistics.heartbeat_age_ms = 0U;
+        can_statistics.esp32_online = 1U;
+        heartbeat_timed_out_latched = 0U;
     } else {
         can_statistics.unexpected_rx_seen_count++;
+    }
+}
+
+static void CAN_App_UpdateHeartbeatStatus(void)
+{
+    uint32_t now = osKernelGetTickCount();
+
+    if (can_statistics.last_heartbeat_tick == 0U) {
+        can_statistics.heartbeat_age_ms = 0U;
+        can_statistics.esp32_online = 0U;
+        return;
+    }
+
+    can_statistics.heartbeat_age_ms = now - can_statistics.last_heartbeat_tick;
+    if (can_statistics.heartbeat_age_ms > CAN_HEARTBEAT_TIMEOUT_MS) {
+        if (heartbeat_timed_out_latched == 0U) {
+            can_statistics.heartbeat_timeout_count++;
+            heartbeat_timed_out_latched = 1U;
+        }
+
+        can_statistics.esp32_online = 0U;
+    } else {
+        can_statistics.esp32_online = 1U;
+        heartbeat_timed_out_latched = 0U;
     }
 }
 
@@ -241,7 +281,7 @@ static void CAN_App_Start(void)
     filter.FilterType = FDCAN_FILTER_DUAL;
     filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     filter.FilterID1 = CAN_ESP32_TX_ID;
-    filter.FilterID2 = CAN_ESP32_TX_ID;
+    filter.FilterID2 = CAN_ESP32_HEARTBEAT_ID;
 
     can_statistics.fdcan_filter_ret = HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 

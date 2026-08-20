@@ -19,7 +19,9 @@ static constexpr gpio_num_t CAN_TX_GPIO = GPIO_NUM_18;
 static constexpr gpio_num_t CAN_RX_GPIO = GPIO_NUM_15;
 static constexpr uint32_t CAN_STM32_TX_ID = 0x120;
 static constexpr uint32_t CAN_ESP32_TX_ID = 0x321;
+static constexpr uint32_t CAN_ESP32_HEARTBEAT_ID = 0x701;
 static constexpr uint32_t CAN_TX_PERIOD_MS = 1000;
+static constexpr uint32_t CAN_HEARTBEAT_PERIOD_MS = 500;
 
 typedef struct {
   uint32_t id;
@@ -33,6 +35,8 @@ typedef struct {
   uint32_t other_rx_count;
   uint32_t tx_count;
   uint32_t tx_fail_count;
+  uint32_t heartbeat_tx_count;
+  uint32_t heartbeat_tx_fail_count;
   uint32_t err_count;
   uint32_t last_id;
   uint8_t last_counter;
@@ -40,6 +44,8 @@ typedef struct {
   uint32_t last_update_ms;
   uint32_t last_tx_ms;
   uint8_t last_tx_counter;
+  uint32_t last_heartbeat_ms;
+  uint8_t last_heartbeat_counter;
   bool bus_ok;
 } CanDashboardState;
 
@@ -58,6 +64,7 @@ static lv_obj_t *age_value;
 static bool can_init(void);
 static bool can_receive(CanFrame *frame);
 static bool can_send_demo(void);
+static bool can_send_heartbeat(void);
 static void make_demo_frame(CanFrame *frame);
 static void handle_frame(const CanFrame *frame);
 static void ui_create(void);
@@ -91,6 +98,12 @@ void loop() {
     if (millis() - last_tx_ms >= CAN_TX_PERIOD_MS) {
       last_tx_ms = millis();
       can_send_demo();
+    }
+
+    static uint32_t last_heartbeat_ms = 0;
+    if (millis() - last_heartbeat_ms >= CAN_HEARTBEAT_PERIOD_MS) {
+      last_heartbeat_ms = millis();
+      can_send_heartbeat();
     }
   } else {
     static uint32_t last_demo_ms = 0;
@@ -188,6 +201,29 @@ static bool can_send_demo(void) {
   }
 
   dashboard.tx_fail_count++;
+  dashboard.err_count++;
+  return false;
+}
+
+static bool can_send_heartbeat(void) {
+  static uint8_t counter = 0;
+  twai_message_t message = {0};
+
+  message.identifier = CAN_ESP32_HEARTBEAT_ID;
+  message.extd = 0;
+  message.rtr = 0;
+  message.data_length_code = 1;
+  message.data[0] = counter++;
+
+  esp_err_t err = twai_transmit(&message, pdMS_TO_TICKS(10));
+  if (err == ESP_OK) {
+    dashboard.heartbeat_tx_count++;
+    dashboard.last_heartbeat_ms = millis();
+    dashboard.last_heartbeat_counter = message.data[0];
+    return true;
+  }
+
+  dashboard.heartbeat_tx_fail_count++;
   dashboard.err_count++;
   return false;
 }

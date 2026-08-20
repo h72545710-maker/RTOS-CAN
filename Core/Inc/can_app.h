@@ -59,6 +59,11 @@ typedef struct {
     uint32_t esp32_last_rx_dlc;
     uint32_t esp32_last_rx_counter;
     uint8_t esp32_last_rx_data[8];
+    uint32_t heartbeat_rx_count;
+    uint32_t last_heartbeat_tick;
+    uint32_t heartbeat_age_ms;
+    uint32_t heartbeat_timeout_count;
+    uint32_t esp32_online;
 
     HAL_StatusTypeDef fdcan_start_ret;
     HAL_StatusTypeDef fdcan_filter_ret;
