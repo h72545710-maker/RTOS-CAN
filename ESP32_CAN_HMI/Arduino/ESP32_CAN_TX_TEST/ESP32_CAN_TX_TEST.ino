@@ -1,12 +1,17 @@
 #include <Arduino.h>
 #include "driver/twai.h"
 
+#define BUS_OFF_TEST 0
+
 static constexpr gpio_num_t CAN_TX_GPIO = GPIO_NUM_18;
 static constexpr gpio_num_t CAN_RX_GPIO = GPIO_NUM_15;
-static constexpr uint32_t TX_PERIOD_MS = 1000;
-static constexpr uint32_t STATUS_PERIOD_MS = 500;
 static constexpr uint32_t CAN_TX_ID = 0x321;
 static constexpr uint32_t STM32_TX_ID = 0x120;
+
+static constexpr uint32_t TX_PERIOD_MS = 1000;
+static constexpr uint32_t STATUS_PERIOD_MS = 500;
+static constexpr uint32_t LOOP_DELAY_MS = 5;
+static constexpr uint32_t CAN_BITRATE = 500000;
 
 static uint32_t tx_ok_count = 0;
 static uint32_t tx_err_count = 0;
@@ -36,9 +41,11 @@ static bool can_start(void) {
     return false;
   }
 
-  Serial.printf("TWAI started: 500 kbit/s, TX GPIO=%d, RX GPIO=%d\r\n",
+  Serial.printf("TWAI started: %lu bit/s, TX GPIO=%d, RX GPIO=%d, BUS_OFF_TEST=%d\r\n",
+                (unsigned long)CAN_BITRATE,
                 (int)CAN_TX_GPIO,
-                (int)CAN_RX_GPIO);
+                (int)CAN_RX_GPIO,
+                BUS_OFF_TEST);
   return true;
 }
 
@@ -147,5 +154,5 @@ void loop() {
     print_status();
   }
 
-  delay(5);
+  delay(LOOP_DELAY_MS);
 }
